@@ -9,6 +9,36 @@
 #in areas where fish abundance was high in the year before (y-1 suitability was high)
 
 dir <- "~/DisMAP project/Location, Location, Location/Location Workshop/ROMS"
+# dir <- "C:/Users/Owen.Liu/Documents/NWFSC Research/Location^3" #owen's directory
+
+#*******************Closed Area Simulation********************#
+# Closed area designation can be a set of coordinates (a vector as c(xmin,xmax,ymin,ymax) in lat/lon), or a simple features (sf) polygon object
+# The function takes the given area and converts to a raster on the same grid as the grid used for the species simulation
+# The resulting raster is made up of zeroes (closed area) and ones, such that it could be multiplied by a habitat suitability or
+# sampling raster, in order to exclude those areas from the sample
+# default box is southern California, approximately where the current gillnet loggerhead closure is located
+define_closed_area <- function(closed_area=c(-120,-117,31,35)){
+  library(fasterize)
+  library(raster)
+  library(sf)
+  library(dplyr)
+  #template raster
+  rst_files <- list.files(paste0(dir,'/sst_monthly'), full.names = TRUE, pattern=".grd")
+  rst <- raster(rst_files[[1]])
+  if(class(closed_area)=='numeric'){
+    crds <- matrix(c(closed_area[1],closed_area[3],closed_area[1],closed_area[4],
+                     closed_area[2],closed_area[4],closed_area[2],closed_area[3],
+                     closed_area[1],closed_area[3]),ncol=2,byrow=T)
+    pol <- st_polygon(list(crds)) %>% st_sfc(crs = 4326) %>% st_sf()
+    rst_out <- fasterize(pol,rst)
+    rst_out <- rst_out==0
+  }
+  if(sf %in% class(closed_area)){
+    rst_out <- closed_area %>% st_transform(4326) %>% fasterize(rst)
+    rst_out <- rst_out==0
+  }
+  return(rst_out)
+}
 
 SimulateWorld_ROMS_PMP <- function(dir, nsamples){
   #dir is the local directory that points to where ROMS data is stored 
@@ -35,6 +65,7 @@ SimulateWorld_ROMS_PMP <- function(dir, nsamples){
   years <- seq(1980,2100,1)
   
   #load distance to ports dataset
+  # dist_to_ports <- read.csv(paste0(dir,'/Dist_to_Ports.csv')) #Owen's directory
   dist_to_ports<-read.csv("~/DisMAP project/Location, Location, Location/Location Workshop/Dist_to_Ports.csv")
 
   #----Loop through each year----
@@ -310,6 +341,7 @@ SimulateWorld_ROMS_PMP <- function(dir, nsamples){
   output$abundance_t <- ifelse(output$pres_t==1,rnorm(nrow(output),mean_spatial, se_spatial)*output$suitability_t,0)
   
   print('Saving csv to working directory')
+  # readr::write_rds(output,paste0(dir,'/FisheryDependent_OM_Simulation.rds'))# Owen's directory
   write.csv(output, 'FisheryDependent_OM_Simulation.csv',row.names = FALSE)
   return(output)
 }
