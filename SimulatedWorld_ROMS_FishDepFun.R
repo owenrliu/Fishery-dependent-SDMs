@@ -31,12 +31,12 @@ define_closed_area <- function(closed_area=c(-120,-117,31,35)){
                      closed_area[1],closed_area[3]),ncol=2,byrow=T)
     pol <- st_polygon(list(crds)) %>% st_sfc(crs = 4326) %>% st_sf()
     rst_out <- fasterize(pol,rst)
-    rst_out <- rst_out==0
   }
   if(sf %in% class(closed_area)){
     rst_out <- closed_area %>% st_transform(4326) %>% fasterize(rst)
-    rst_out <- rst_out==0
   }
+  rst_out <- rst_out==0
+  rst_out[is.na(rst_out)] <- 1
   return(rst_out)
 }
 
